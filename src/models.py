@@ -74,7 +74,7 @@ class People(db.Model):
 
     favorites: Mapped[list["Favorites"]] = relationship(
         back_populates="people")
-    planet_id: Mapped[int] = mapped_column(ForeignKey("planets.id"))
+    planet_id: Mapped[int] = mapped_column(ForeignKey("planets.id"), nullable=True)
     # uselist=False --> aqui va el uselist para que no lo devuelva en lista? porque es solo un planeta?
     planet: Mapped["Planets"] = relationship(back_populates="people")
 
@@ -119,9 +119,9 @@ class Planets(db.Model):
             "gravity": self.gravity,
             "films": self.films,
 
-            "favorites": [favorite.serialize() for favorite in self.favorites],
-            # esto está bien o debería cambiar people y poner p?
-            "people": [character.serialize() for character in self.people]
+            # "favorites": [favorite.serialize() for favorite in self.favorites],
+            # # esto está bien o debería cambiar people y poner p?
+            # "people": [character.serialize() for character in self.people]
 
         }
 
