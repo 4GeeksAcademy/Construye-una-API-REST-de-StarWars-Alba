@@ -22,8 +22,8 @@ class Users(db.Model):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     lastname: Mapped[str] = mapped_column(String(50), nullable=False)
     gender: Mapped[GenderEnum] = mapped_column(sqlalchemyEnum(
-        GenderEnum, name="genderenum"), nullable=True)  # esto tampoco estoy segura
-
+        GenderEnum, name="genderenum"), nullable=True)
+    
     favorites: Mapped[list["Favorites"]] = relationship(back_populates="user")
 
     def serialize(self):
