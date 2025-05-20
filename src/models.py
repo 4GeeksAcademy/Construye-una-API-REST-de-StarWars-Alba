@@ -24,8 +24,6 @@ class Users(db.Model):
     gender: Mapped[GenderEnum] = mapped_column(sqlalchemyEnum(
         GenderEnum, name="genderenum"), nullable=True)  # esto tampoco estoy segura
 
-    # profile: Mapped["Profiles"] = relationship(
-    #     back_populates="user", uselist=False)
     favorites: Mapped[list["Favorites"]] = relationship(back_populates="user")
 
     def serialize(self):
@@ -36,28 +34,8 @@ class Users(db.Model):
             "lastname": self.lastname,
             "gender": self.gender.value if self.gender else None,
 
-            # "profile": self.profile.serialize() if self.profile else None,
-            # "favorites": [favorite.serialize() for favorite in self.favorites]
+            "favorites": [favorite.serialize() for favorite in self.favorites]
         }
-
-
-# class Profiles(db.Model):
-#     __tablename__ = "profiles"
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     # aqui no hace falta el nullable=False verdad?
-#     bio: Mapped[str] = mapped_column(String(2000))
-
-#     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-#     user: Mapped["Users"] = relationship(back_populates="profile")
-
-#     def serialize(self):  # que criterio a seguir para incluir en el serialize? que es lo que quiero que se reciba?
-#         return {
-#             "id": self.id,
-#             "bio": self.bio,
-#             "user_id": self.user_id,
-#             # aqui no estoy segura de que tengo que poner, si lleva serialize o no
-#             "user": self.user.serialize() if self.user else None,
-#         }
 
 
 class People(db.Model):
@@ -74,8 +52,8 @@ class People(db.Model):
 
     favorites: Mapped[list["Favorites"]] = relationship(
         back_populates="people")
-    planet_id: Mapped[int] = mapped_column(ForeignKey("planets.id"), nullable=True)
-    # uselist=False --> aqui va el uselist para que no lo devuelva en lista? porque es solo un planeta?
+    planet_id: Mapped[int] = mapped_column(
+        ForeignKey("planets.id"), nullable=True)
     planet: Mapped["Planets"] = relationship(back_populates="people")
 
     def serialize(self):
@@ -89,9 +67,12 @@ class People(db.Model):
             "films": self.films,
             "vehicles": self.vehicles,
 
-            # "favorites": [favorite.serialize() for favorite in self.favorites],
-            # "planet_id": self.planet_id.serialize() if self.planet_id else None,
-            # "planet": self.planet.serialize() if self.planet else None
+            "favorites": [{
+                "user_id": favorite.user_id,
+                "people_id": favorite.people_id,
+                "planets_id": favorite.planets_id
+            } for favorite in self.favorites],
+            "planet": self.planet.serialize() if self.planet else None
         }
 
 
@@ -119,10 +100,7 @@ class Planets(db.Model):
             "gravity": self.gravity,
             "films": self.films,
 
-            # "favorites": [favorite.serialize() for favorite in self.favorites],
-            # # esto está bien o debería cambiar people y poner p?
-            # "people": [character.serialize() for character in self.people]
-
+            "favorites": [favorite.serialize() for favorite in self.favorites],
         }
 
 
@@ -141,11 +119,17 @@ class Favorites(db.Model):
 
     def serialize(self):
         return {
-            "user_id": self.user_id,
-            "people_id": self.people_id,
-            "planets_id": self.planets_id,
-
-            "user": self.user.serialize() if self.user else None,
-            "people": self.people.serialize() if self.people else None,
-            "planets": self.planets.serialize() if self.planets else None
+            "user": {
+                "id": self.user_id,
+                "name": self.user.name,
+                "email": self.user.email,
+            },
+            "people": {
+                "id": self.people.id,
+                "name": self.people.character_name
+            } if self.people else None,
+            "planets": {
+                "id": self.planets.id,
+                "name": self.planets.planet_name
+            } if self.planets else None
         }

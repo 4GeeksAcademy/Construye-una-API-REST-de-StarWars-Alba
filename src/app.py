@@ -44,14 +44,10 @@ def sitemap():
     return generate_sitemap(app)
 
 # USERS
-
-
 @app.route("/users", methods=["GET"])
 def get_all_users():
     stmt = select(Users)
-    # como es todos devuelve una colección de los registros
     users = db.session.execute(stmt).scalars().all()
-    # se pone el serialize xq es una lista?? es lista xq son todos los usuarios? hacer for in en los qe nos devuelve todos
     return jsonify([user.serialize()for user in users]), 200
 
 
@@ -70,7 +66,7 @@ def create_user():
     if not data or "email" not in data or "password" not in data or "name" not in data or "lastname" not in data:
         return jsonify({"error": "Missing data to create new user"}), 400
 
-    new_user = Users(  # aqui ponemos los que tienen nullable=False ???
+    new_user = Users(
         email=data["email"],
         password=data["password"],
         name=data["name"],
@@ -108,7 +104,6 @@ def delete_user(id):
 
 # PEOPLE
 
-
 @app.route("/people", methods=["GET"])
 def get_all_characters():
     stmt = select(People)
@@ -125,8 +120,8 @@ def get_one_character(character_id):
     return jsonify(character.serialize()), 200
 
 
-
-@app.route("/people", methods=["POST"]) # da error que se va si añado nullable=True al model
+# da error que se va si añado nullable=True al model
+@app.route("/people", methods=["POST"])
 def create_character():
     data = request.get_json()
     if not data or "character_name" not in data or "birth_year" not in data or "gender" not in data or "hair_color" not in data or "height" not in data or "films" not in data or "vehicles" not in data:
@@ -153,8 +148,7 @@ def update_character(id):
     character = db.session.execute(stmt).scalar_one_or_none()
     if character is None:
         return jsonify({"error": "character not found"}), 404
-    character.character_name = data.get(
-        "character_name", character.character_name)
+    character.character_name = data.get("character_name", character.character_name)
     character.birth_year = data.get("birth_year", character.birth_year)
     character.gender = data.get("gender", character.gender)
     character.hair_color = data.get("hair_color", character.hair_color)
@@ -165,12 +159,13 @@ def update_character(id):
     return jsonify(character.serialize()), 200
 
 
-@app.route("/people/<int:id>", methods=["DELETE"])  # da error al eliminar data añadida con el seed.py
+# da error al eliminar data añadida con el seed.py
+@app.route("/people/<int:id>", methods=["DELETE"])
 def delete_character(id):
     stmt = select(People).where(People.id == id)
     character = db.session.execute(stmt).scalar_one_or_none()
     if character is None:
-        return jsonify({"Error": "Character not found"}), 404
+        return jsonify({"error": "Character not found"}), 404
     db.session.delete(character)
     db.session.commit()
     return jsonify({"message": "character deteled"}), 200
@@ -213,7 +208,8 @@ def create_planet():
     return jsonify(new_planet.serialize()), 201
 
 
-@app.route("/planets/<int:id>", methods=["DELETE"])  # da error 500 al eliminar data añadida con el seed.py
+# da error 500 al eliminar data añadida con el seed.py
+@app.route("/planets/<int:id>", methods=["DELETE"])
 def delete_planet(id):
     stmt = select(Planets).where(Planets.id == id)
     user = db.session.execute(stmt).scalar_one_or_none()
@@ -223,7 +219,103 @@ def delete_planet(id):
     db.session.commit()
     return jsonify({"Message": "Planet deleted"}), 200
 
+# FAVORITES
 
+@app.route("/favorites", methods=["GET"])
+def get_all_favorites():
+    favorites = db.session.execute(select(Favorites)).scalars().all()
+    return jsonify([favorite.serialize() for favorite in favorites]), 200
+
+
+@app.route("/favorites/people/<int:people_id>", methods=["POST"])
+def add_favorite_character(people_id):
+    data = request.get_json()
+
+    if not data or "user_id" not in data:
+        return jsonify({"error": "missing user_id"}), 400
+    
+    user = db.session.execute(select(Users).where(Users.id == data["user_id"])).scalar_one_or_none()
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+
+    character = db.session.execute(select(People).where(People.id == people_id)).scalar_one_or_none()
+    if not character:
+        return jsonify({"error": "character not found"}), 404
+
+    existing = db.session.execute(select(Favorites).where(Favorites.user_id == data["user_id"], Favorites.people_id == people_id)).scalar_one_or_none()
+    if existing:
+        return jsonify({"error": "character already in favorites"}), 409
+
+    new_favorite = Favorites(
+        user_id=data["user_id"],
+        people_id=people_id
+    )
+    db.session.add(new_favorite)
+    db.session.commit()
+    return jsonify(new_favorite.serialize()), 201
+
+
+
+@app.route("/favorites/planet/<int:planet_id>", methods=["POST"])
+def add_favorite_planet(planet_id):
+    data = request.get_json()
+
+    if not data or "user_id" not in data:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    user = db.session.execute(select(Users).where(Users.id == data["user_id"])).scalar_one_or_none()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    planet = db.session.execute(select(Planets).where(Planets.id == planet_id)).scalar_one_or_none()
+    if not planet:
+        return jsonify({"error": "Planet not found"}), 404
+
+    existing = db.session.execute(select(Favorites).where(Favorites.user_id == data["user_id"],Favorites.planet_id == planet_id)).scalar_one_or_none()
+    if existing:
+        return jsonify({"error": "planet already in favorites"}), 409
+
+    new_favorite = Favorites(
+        user_id=data["user_id"],
+        planet_id=planet_id
+    )
+    db.session.add(new_favorite)
+    db.session.commit()
+    return jsonify(new_favorite.serialize()), 201
+
+
+@app.route("/favorites/planet/<int:planet_id>", methods=["DELETE"])
+def delete_favorite_planet(planet_id):
+    data = request.get_json()
+
+    if not data or "user_id" not in data:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    favorite = db.session.execute(select(Favorites).where(Favorites.user_id == data["user_id"],Favorites.planet_id == planet_id)).scalar_one_or_none()
+
+    if not favorite:
+        return jsonify({"error": "Favorite planet not found"}), 404
+
+    db.session.delete(favorite)
+    db.session.commit()
+    return jsonify({"message": "Favorite planet deleted"}), 200
+
+
+@app.route("/favorites/people/<int:people_id>", methods=["DELETE"])
+def delete_favorite_character(people_id):
+    data = request.get_json()
+
+    if not data or "user_id" not in data:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    favorite = db.session.execute(select(Favorites).where(Favorites.user_id == data["user_id"], Favorites.people_id == people_id)).scalar_one_or_none()
+
+    if not favorite:
+        return jsonify({"error": "Favorite character not found"}), 404
+
+    db.session.delete(favorite)
+    db.session.commit()
+    return jsonify({"message": "Favorite character deleted"}), 200
 
 
 # this only runs if `$ python src/app.py` is executed
